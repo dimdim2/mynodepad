@@ -6,3 +6,8 @@ mongoose.model('Documents', {
 	indexes: [ 'title', 'user_id' ]
 });
 
+Document.virtual('id')
+	.get(function() {
+		return this._id.toHexString();
+	});
+

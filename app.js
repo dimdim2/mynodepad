@@ -6,6 +6,7 @@
 var express = require('express'),
 	routes = require('./routes'),
 	mongoose = require('mongoose'),
+	jade = require('jade'),
 	db,
 	Document;
 
@@ -58,7 +59,9 @@ app.get('/documents.:format?', function(req, res) {
 			break;
 			
 			default:
-				res.render('documents/index.jade');
+				res.render('documents/index.jade', {
+					locals: {documents: documents}
+				});
 		}
 	});
 });
@@ -77,16 +80,53 @@ app.post('/documents.:format?', function(req, res) {
 	});
 });
 
-// Read
-app.get('/documents/:id.:format?', function(req, res) {
+app.get('/documents/:id.:format?/edit', function(req, res) {
+	Document.findById(req.params.id, function(d) {
+		res.render('documents/edit.jade', {
+			locals: {d : d}
+		});
+	});
+});
+
+app.get('/document/new', function(req, res) {
+	res.render('documents/new.jade', {
+		locals: { d: new Document() }
+	});
 });
 
 // Update
 app.put('/documents/:id.:format?', function(req, res) {
+	Document.findById(req.body.document.id, function(d) {
+		d.title = req.body.document.title;
+		d.data = req.body.document.data;
+		
+		d.save(function() {
+			switch (req.params.format) {
+				case 'json':
+					res.send(d.__doc);
+				break;
+				
+				default:
+					res.redirect('/documents');
+			}
+		});
+	});
 });
 
 // Delete
 app.del('/documents/:id.:format?', function(req, res) {
+	Document.findById(req.body.document.id, function(d) {
+		d.remove(function() {
+			switch (req.params.format) {
+				case 'json':
+					res.send(d.__doc);
+				break;
+				
+				default:
+					res.redirect('/documents');
+			}
+		});
+	});
 });
 
 if(!module.parent) {
