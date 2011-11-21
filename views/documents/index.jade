@@ -1,3 +1,12 @@
+h1 Your Documents
+
+p
+  a(class='button', href='/documents/new') + New Document
+
 ul
-	-for(var d in documents)
-		li= d.title
+  - for (var d in docs)
+    li
+      a(href='/documents/' + docs[d].id)= docs[d].title
+      a(class='button', href='/documents/' + docs[d].id + '/edit') Edit
+      a(class='button destory', href='/documents/' + docs[d].id) Delete
+      

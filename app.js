@@ -7,63 +7,81 @@ var express = require('express'),
 	routes = require('./routes'),
 	mongoose = require('mongoose'),
 	jade = require('jade'),
-	db,
 	Document;
 
+var db = mongoose.connect('mongodb://localhost/nodepad');
+
 var app = module.exports = express.createServer();
+app.Document = Document = require('./model.js').Document(db);
 
 // Configuration
 
 app.configure(function(){
-  app.set('views', __dirname + '/views');
-  app.set('view engine', 'jade');
-  app.use(express.bodyParser());
-  app.use(express.methodOverride());
-  app.use(app.router);
-  app.use(express.static(__dirname + '/public'));
+	app.set('views', __dirname + '/views');
+	app.set('view engine', 'jade');
+	app.use(express.favicon()); 
+	app.use(express.bodyParser());
+	app.use(express.methodOverride());
+	app.use(app.router);
+	app.use(express.static(__dirname + '/public'));
 });
 
 app.configure('development', function(){
-  app.use(express.logger({ format: ':method :uri'}));
-  app.use(express.errorHandler({ dumpExceptions: true, showStack: true}));
-	db = mongoose.connect('mongodb://localhost/nodepad-development');
+	app.use(express.logger({ format: ':method :uri'}));
+	app.use(express.errorHandler({ dumpExceptions: true, showStack: true}));
 });
 
 app.configure('production', function(){
-  app.use(express.logger());
-  app.use(express.errorHandler()); 
-	db = mongoose.connect('mongodb://localhost/nodepad-production');
+	app.use(express.logger());
+	app.use(express.errorHandler()); 
 });
 
 app.configure('test', function() {
 	app.use(express.errorHandler({ dumpExceptions: true, showStack: true}));
-	db = mongoose.connect('mongodb://localhost/nodepad-test');
 });
 
 // Routes
 
 app.get('/', function(req, res) {
+/*
 	res.render('index.jade', {
 		title : "title"
 	});
+*/
+	res.redirect('/documents');
 });
 
 // List
 app.get('/documents.:format?', function(req, res) {
-	Documents.find().all(function(documents) {
+	Document.find({}, function(err, docs) {
 		switch (req.params.format) {
 			case 'json' :
-				res.send(documents.map(function(d) {
+				res.send(docs.map(function(d) {
 					return d.__doc;
 				}));
 			break;
 			
 			default:
 				res.render('documents/index.jade', {
-					locals: {documents: documents}
+					locals: { docs: docs }
 				});
 		}
 	});
+});
+
+// Update Form
+app.get('/documents/:id.:format?/edit', function(req, res) {
+	Document.findById(req.params.id, function(err, d) {
+		res.render('documents/edit.jade', {
+			locals: {d : d}
+		});
+	});
+});
+
+app.get('/documents/new', function(req, res) {
+  res.render('documents/new', {
+    locals: { d: new Document() }
+  });
 });
 
 // Create
@@ -80,23 +98,25 @@ app.post('/documents.:format?', function(req, res) {
 	});
 });
 
-app.get('/documents/:id.:format?/edit', function(req, res) {
-	Document.findById(req.params.id, function(d) {
-		res.render('documents/edit.jade', {
-			locals: {d : d}
-		});
-	});
-});
+// Read 
+app.get('/documents/:id.:format?', function(req, res) {
+  Document.findById(req.params.id, function(err, d) {
+    switch (req.params.format) {
+      case 'json':
+        res.send(d.__doc);
+        break;
 
-app.get('/document/new', function(req, res) {
-	res.render('documents/new.jade', {
-		locals: { d: new Document() }
-	});
+      default:
+        res.render('documents/show.jade', {
+          locals: { d: d }
+        });
+    }
+  });
 });
 
 // Update
 app.put('/documents/:id.:format?', function(req, res) {
-	Document.findById(req.body.document.id, function(d) {
+	Document.findById(req.body.document.id, function(err, d) {
 		d.title = req.body.document.title;
 		d.data = req.body.document.data;
 		
@@ -104,7 +124,7 @@ app.put('/documents/:id.:format?', function(req, res) {
 			switch (req.params.format) {
 				case 'json':
 					res.send(d.__doc);
-				break;
+					break;
 				
 				default:
 					res.redirect('/documents');
@@ -115,12 +135,12 @@ app.put('/documents/:id.:format?', function(req, res) {
 
 // Delete
 app.del('/documents/:id.:format?', function(req, res) {
-	Document.findById(req.body.document.id, function(d) {
-		d.remove(function() {
+	Document.findById(req.params.id, function(err, d) {
+		d.remove(function(err) {
 			switch (req.params.format) {
 				case 'json':
-					res.send(d.__doc);
-				break;
+					res.send('true');
+					break;
 				
 				default:
 					res.redirect('/documents');

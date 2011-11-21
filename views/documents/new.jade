@@ -1,3 +1,7 @@
 h2 New Document
-form(method='post', action='/documents')
-	!=partial('documents/fields', {locals: {d : d}})
+p
+	a(href='/documents', class='button')
+		&larr; All Documents
+
+	form(method='post', action='/documents')
+		!=partial('../partials/fields', {locals: {d : d}})
