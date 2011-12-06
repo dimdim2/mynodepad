@@ -21,6 +21,8 @@ app.configure(function(){
 	app.set('view engine', 'jade');
 	app.use(express.favicon()); 
 	app.use(express.bodyParser());
+	app.use(express.cookieDecoder());
+	app.use(express.session());
 	app.use(express.methodOverride());
 	app.use(app.router);
 	app.use(express.static(__dirname + '/public'));
@@ -40,7 +42,78 @@ app.configure('test', function() {
 	app.use(express.errorHandler({ dumpExceptions: true, showStack: true}));
 });
 
+function mongoStoreConnectionArgs() {
+	return {
+		dbname: db.db.databaseName,
+		host: db.db.serverConfig.host,
+		port: db.db.serverConfig.port,
+		username: db.uri.username,
+		password: db.uri.password
+	};
+}
+
+app.use(express.session({
+	store : mongoStore(mongoStoreConnectionArgs())
+}));
+
+function loadUser(req, res, next) {
+	if(req.session.user_id) {
+		User.findById(req.session.user_id, function(user) {
+			if(user) {
+				req.currentUser = user;
+				next();
+			} else {
+				res.redirect('/sessions/new');
+			}
+		});
+	} else {
+		res.redirect('/sessions/new');
+	}
+}
+
+
 // Routes
+
+app.get('/sessions/new', function(req, res) {
+	res.render('sessions/new.jade', {
+		locals: { user: new User() }
+	});
+});
+
+app.post('/sessions', function(req, res) {
+
+});
+
+app.del('/sessions', loadUser, function(req, res) {
+	if(req.session) {
+		req.session.destroy(function() {});
+	}
+	res.redirect('/sessions/new');
+});
+
+app.post('/users.:format?', function(req, res) {
+	var user = new User(req.body.user);
+	
+	function userSaved() {
+		switch (req.params.format) {
+			case 'json':
+				res.send(user.__doc);
+				break;
+			default: 
+				req.setssion.user_id = user.id;
+				res.redirect('/documents');
+		}
+	}
+
+	function userSaveFailed() {
+		res.render('users/new.jade', {
+			locals: {user: user}
+		});
+	}
+
+	user.save(userSaved, userSaveFailed);
+}
+
 
 app.get('/', function(req, res) {
 /*
@@ -52,7 +125,7 @@ app.get('/', function(req, res) {
 });
 
 // List
-app.get('/documents.:format?', function(req, res) {
+app.get('/documents.:format?', loadUser, function(req, res) {
 	Document.find({}, function(err, docs) {
 		switch (req.params.format) {
 			case 'json' :
